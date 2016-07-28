@@ -1,0 +1,105 @@
+#попытки считать омонимы (fail)
+
+#final_count = []
+#for i in range(len(rep_count)):
+ #   r =  range(int(str_value(rep_count[i])))
+    
+
+    
+
+#sems = []
+#for i in range(len(om_counter)):
+ #   if om_counter[i-1] == om_counter[i]:
+  #      o += 1
+   #     sems.append(o)
+    #elif om_counter[i-1] != om_counter[i]:
+     #   sems.append(1)
+    #elif om_counter[i-1] == 0:
+     #   sems.append(1)
+    #o = 1
+        
+#for i in range(len(omonymy)):
+ #   o = 1
+  #  if int(str_value(omonymy[i-1])) == 0:
+   #     o = 1
+    #if str_value(omonymy[i-1]) == str_value(omonymy[i-1]):
+     #   o += 1
+    #if str_value(omonymy[i-1]) != str_value(omonymy[i-1]):
+     #   o = 1
+    #sems.append(o)
+
+    
+
+########################################################            
+######очистить########
+#f = open('Ozhegov_homonymy.csv','w',encoding = 'utf-8')
+#for o in omonymy:
+#    f.write(str(o)+'\n')        
+#f.close()        
+#######################
+
+f = open('Ozhegov_homonymy.csv','r',encoding = 'utf-8')
+t = f.readlines()
+f.close()
+wrong = []
+right = []
+right_words = []
+for line in t:
+    line = line.strip('\{\};\n')
+    if int(line[-1]) == 1:
+        wrong.append(line)
+    else:
+        right_words.append(line)
+        if line not in right:
+            right.append(line)
+fine = []        
+for w in wrong:
+    m = re.match('.*;',w)
+    if m != None:
+        m = m.group().strip(';')        
+    for r in right:
+        if m == (re.match('.*;',r).group()).strip(';'):
+            if w.replace(w[-1],r[-1]) not in fine:
+                fine.append(w.replace(w[-1],r[-1]))
+
+for i in range(len(fine)):
+    if (re.match('.*;',fine[i]).group()).strip(';') == (re.match('.*;',fine[i-1]).group()).strip(';'):
+        fine.remove(fine[i-1])
+        
+#for u in right_words:
+#    fine.append(u)
+#f = open('Ozhegov_homonymy1.csv', 'w', encoding ='utf-8')
+#for line in fine:
+#    f.write(line + '\n') 
+#f.close()           
+    
+#lemmas = []
+#normalized_forms = []
+#normalized_gram = []
+#nouns = []
+#inf = []
+#for sentence in sentences:
+    #for s in sentence:
+     #   try:
+      #      if len(s) == 0:
+       #         sentences.remove(sentence)
+        #except ValueError:
+         #   continue
+#    normalized_gram.append(sentence[-1])
+ #   for word in sentence[-1]:
+  #      word = str_key(word)        
+   #     normalized_forms.append(word)
+    #    if word not in lemmas:
+     #       lemmas.append(word)
+            
+#for forms in normalized_gram:
+ #   if forms == []:
+  #      normalized_gram.remove(forms)
+   # for word in forms:
+    #    line = str_value(word)
+     #   m = re.search('NOUN',line)
+      #  if m != None:
+       #     nouns.append(str_key(word))
+        #m = re.search('INFN',line)
+        #if m != None:
+         #   inf.append(str_key(word))
