@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jul 29 15:49:38 2016
+Created on Mon Jul 25 12:53:41 2016
 
 @author: cogntech
 """
-
 import os
 import nltk
 from nltk.corpus import stopwords
@@ -42,7 +41,6 @@ def dict_to_sentences(text,tokenizer, remove_stopwords=True):
     raw_sentences = tokenizer.tokenize(text.strip())
     sentences = []
     for raw_sentence in raw_sentences:
-        #if len(raw_sentence) > 0:
         if dict_to_wordlist(raw_sentence,remove_stopwords) not in sentences:
             sentences.append(dict_to_wordlist(raw_sentence,remove_stopwords))
     return(sentences)
@@ -71,61 +69,89 @@ for art in _dict["DEF"]:
     sentences.append(dict_to_sentences(str(art), tokenizer))
     i += 1      
 
+omonymy = []
 om_counter = []
+sim_w_counter = []
 for i in range(len(baseforms)):
     if baseforms[i] >= 1:
         om_counter.append(int(baseforms[i]))
     else:
         om_counter.append(0) 
-
-omonymy = []
-for i in range(len(om_counter)):
     omonymy.append({words[i]:om_counter[i]})
-w_counter = []
-for word in words:
-    c = words.count(word)
-    if {word:c} not in w_counter:    
-        w_counter.append({word:c})
-    
-sim_w = []
-for w in w_counter:
-    if int(str_value(w)) >= 1 and w not in sim_w:
-        sim_w.append(w)
-fine_om = []
-for l in range(len(sim_w)+1):
-    for i in range(len(omonymy)):
-        if str_key(omonymy[i]) == str_key(sim_w[l]) and str_value(omonymy[i]) != '1':
-            if int(str_value(omonymy[i+1])) < int(str_value(omonymy[i])):                
-                fine_om.append({str_key(omonymy[i]):int(str_value(omonymy[i]))})
+    c = words.count(words[i])
+    if {words[i]:c} not in sim_w_counter:    
+        sim_w_counter.append({words[i]:c})
 
-for i in range(len(fine_om)):
-    for o in omonymy:
-        if str_key(o) == str_key(fine_om[i]):
-            omonymy.remove(o)
-            omonymy.append(fine_om[i])
+om_counter.clear()
+sem  = []
+#for i in range(len(omonymy)):
+
+    #if str_value(omonymy[i]) != '0' and str_key(omonymy[i-1]) == str_key(omonymy[i]) and str_value(omonymy[i-1]) == str_value(omonymy[i]):
+     #   sem.append(str_key(omonymy[i]))        
+        #om_counter.append({str_key(omonymy[i]):l})
+        #l+=1
+        #if str_key(omonymy[i-1]) == str_key(omonymy[i]) and str_value(omonymy[i-1]) < str_value(omonymy[i]):
+         #   om_counter.append({str_key(omonymy[i]):l})
+        #else:
+         #   om_counter.append({str_key(omonymy[i]):l})
+om_number = []
+for s in sim_w_counter:
+    om_number.append(str_value(s))
+all_om = []
+for o in omonymy:
+    all_om.append(str_value(o))      
+
+        
+fine_om = []
+for l in range(len(sim_w_counter)+1):
+    for i in range(len(omonymy)):
+        if words[i] == str_key(sim_w_counter[l]) and all_om[i] != '1':
+            if int(all_om[i+1]) < int(all_om[i]):                
+                fine_om.append({words[i]:int(all_om[i])})
+
+#for i in range(len(fine_om)):
+ #   for o in omonymy:
+  #      if str_key(o) == str_key(fine_om[i]):
+   #         omonymy.remove(o)
+    #        omonymy.append(fine_om[i])
+
+groups = []
+for i in range(len(omonymy)):
+    sup = []
+    if all_om[i-1] == all_om[i]:
+        sup.append(omonymy[i])
+    if all_om[i-1] < all_om[i]:
+        sup.clear()
+        sup.append(omonymy[i])
+    groups.append(len(sup))
+    
 
 hom = []
-#f = open('Homonymy.csv','w',encoding = 'utf-8')
 for i in range(len(words)):
     hom.append({words[i]:om_counter[i]})
-    #f.write(words[i]+';'+ str(om_counter[i]) + '\n')
-#f.close()
-
 #####################################################
 rep_count = []
 for o in omonymy:
     c = omonymy.count(o)
-    #if {str_key(o):c} not in rep_count:
-    rep_count.append({str_key(o):c})
+    if {str_key(o):c} not in rep_count:
+        rep_count.append({str_key(o):c})
 
 repetitions = []
 rep_lines = []
+repetitions = []
+for rep in rep_count:
+    repetitions.append(str_value(rep))
+rep_lines = []
+for rep in rep_count:
+    rep_lines.append(str_key(rep))
+str_final = []    
 final = []
 for n in range(len(rep_count)):
     for i in range(int(str_value(rep_count[n]))):
         final.append({str_key(rep_count[n]):i+1})
+        str_final.append(str_key(rep_count[n])+';'+)
 #####################################################
-        
+
 counter = []
 counter1 = []
 for i in range(len(rep_count)):
@@ -137,39 +163,78 @@ for i in range(len(rep_count)):
         else:
             counter.append({str_key(rep_count[i]):c + 1}) 
             counter1.append(c+1)
+            
 counted_words = []        
 for c in counter:
     counted_words.append(str_key(c))
-
-all_words = []
-i = 0
-for w in words:
-    all_words.append({w:i})
-    i+=1
-
-count_indx = []
-i = 0
-for w in counted_words:
-    count_indx.append({w:i})
-    i+=1
-
-mistakes = []
-for a in all_words:
-    if a not in count_indx:
-        mistakes.append(a)
             
 final = []
-#for c in counter:
 for o in omonymy:
     for c in counter:
         if str_key(o) == str_key(c):
             line = str(str_key(o) + ';' + str_value(o) + ';' + str_value(c))
             if line not in final:
                 final.append(line)
-#for o in omonymy:
-    
                 
-f = open('Homonymy.csv','w',encoding = 'utf-8')
+f = open('Homonymy_TRY.csv','w',encoding = 'utf-8')
 for line in final:
     f.write(line+ '\n')
-#f.write(str_key(c) + ';' + str_value(omonymy) + ';' + str_value(counter) + 'n\')
+f.close()
+
+f = open('Homonymy_TRY.csv','r',encoding = 'utf-8')            
+w_hom = f.readlines()
+f.close()
+for line in w_hom:
+    if line[1] == '0':
+        w_hom.append(line)              
+
+
+
+
+
+###### СРАВНКЕНИЕ ИНДЕКСОВ
+#all_words = []
+#i = 0
+#for w in words:
+ #   all_words.append({w:i})
+  #  i+=1
+
+#count_indx = []
+#i = 0
+#for w in counted_words:
+ #   count_indx.append({w:i})
+  #  i+=1
+
+#mistakes = []
+#for a in all_words:
+#    if a not in count_indx:
+#        mistakes.append(a)
+
+
+
+
+
+### ГИПЕРОНИМЫ В ТОЛКОВАНИИ
+#c = Counter(nouns).most_common()
+#v = Counter(inf).most_common()
+
+### 1-е сущ
+#for _class in c[:20]:
+  #  f = open(_class[0]+'.txt','a',encoding = 'utf-8')    
+   # for sentence in sentences:
+    #    m = re.search(_class[0] + '.*NOUN.*nomn', str(sentence[-1])) #регулярка неоч
+     #   if m != None:
+      #      for s in sentence:
+       #         f.write(str_key(s[0]) + '\n')
+    #f.close()
+
+### 1-й глагол 
+#for verb in v[:20]:
+ #   f=  open(verb[0] +'.txt','a',encoding = 'utf-8')
+  #  for sentence in sentences:
+   #     m = re.search(verb[0], str(sentence[-1]))
+    #    
+     #   if m != None:
+      #      for s in sentence:
+       #         f.write(str_key(s[0]) + '\n')            
+    #f.close()
