@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jul 25 12:53:41 2016
+Created on Fri Jul 29 15:49:38 2016
 
 @author: cogntech
 """
+
 import os
 import nltk
 from nltk.corpus import stopwords
@@ -110,12 +111,21 @@ for i in range(len(words)):
     #f.write(words[i]+';'+ str(om_counter[i]) + '\n')
 #f.close()
 
+#####################################################
 rep_count = []
 for o in omonymy:
     c = omonymy.count(o)
-    if {str_key(o):c} not in rep_count:
-        rep_count.append({str_key(o):c})
+    #if {str_key(o):c} not in rep_count:
+    rep_count.append({str_key(o):c})
 
+repetitions = []
+rep_lines = []
+final = []
+for n in range(len(rep_count)):
+    for i in range(int(str_value(rep_count[n]))):
+        final.append({str_key(rep_count[n]):i+1})
+#####################################################
+        
 counter = []
 counter1 = []
 for i in range(len(rep_count)):
@@ -162,29 +172,4 @@ for o in omonymy:
 f = open('Homonymy.csv','w',encoding = 'utf-8')
 for line in final:
     f.write(line+ '\n')
-            #f.write(str_key(c) + ';' + str_value(omonymy) + ';' + str_value(counter) + 'n\')
-              
-#c = Counter(nouns).most_common()
-#v = Counter(inf).most_common()
-
-### ГИПЕРОНИМЫ В ТОЛКОВАНИИ
-#for _class in c[:20]:
- #   #дубли
-  #  f = open(_class[0]+'.txt','a',encoding = 'utf-8')    
-   # for sentence in sentences:
-    #    m = re.search(_class[0] + '.*NOUN.*nomn', str(sentence[-1])) #регулярка неоч
-     #   if m != None:
-      #      for s in sentence:
-       #         f.write(str_key(s[0]) + '\n')
-    #f.close()
-
-### 1-й глагол +(или) 1-е сущ
-#for verb in v[:20]:
- #   f=  open(verb[0] +'.txt','a',encoding = 'utf-8')
-  #  for sentence in sentences:
-   #     m = re.search(verb[0], str(sentence[-1]))
-    #    
-     #   if m != None:
-      #      for s in sentence:
-       #         f.write(str_key(s[0]) + '\n')            
-    #f.close()
+#f.write(str_key(c) + ';' + str_value(omonymy) + ';' + str_value(counter) + 'n\')
