@@ -129,7 +129,7 @@ for i in range(len(omonymy)):
 hom = []
 for i in range(len(words)):
     hom.append({words[i]:om_counter[i]})
-#####################################################
+#####################################################https://habrahabr.ru/post/85459/
 rep_count = []
 for o in omonymy:
     c = omonymy.count(o)
