@@ -49,14 +49,22 @@ def dict_to_sentences(text,tokenizer, remove_stopwords=True):
 sentences = []
 baseforms = []
 words = []
+voc = []
 i = 0
 for art in _dict["DEF"]:
-    words.append({i:_dict["VOCAB"][i]})
+    voc.append(_dict["VOCAB"][i])
+    #words.append({i:_dict["VOCAB"][i]})
     #art = _dict["VOCAB"][i]+ ' ' + str(art)
-    baseforms.append(_dict["BASEFORM"][i])
-    sentences.append(dict_to_sentences(str(art), tokenizer))
+    #baseforms.append(_dict["BASEFORM"][i])
+    #sentences.append(dict_to_sentences(str(art), tokenizer))
     i += 1
-
+    
+voc_tags = []
+for word in voc:
+    p = morph.parse(word)[0]
+    word = {word:str(p.tag)}
+    voc_tags.append(word)
+    
 ### ОМОНИМИЯ:
 omonymy = []
 omonymy_indx = []
@@ -82,15 +90,72 @@ with open('ozhegov_data.json','w',encoding = 'utf-8') as outfile:
             s = list(s)
             s[0] = {'LEMMAS':s[0]}
             s[-1] = {'GRAM':s[-1]}
-            to_json.append({str_value(words[i]) + '; ' + str(om_counter[i]):s})
+            to_json.append({str(voc_tags[i]) + '; ' + str(om_counter[i]):s})
     json.dump(to_json,outfile,ensure_ascii=False,indent=1)
 
 ###ПОИСК ПО ГРАМ. ТЕГАМ:
 with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
     json_data = json.load(json_file, encoding= 'utf-8' )
 
+#result = []
+#k_word = 'болезнь'
+
+mistakes = []
+wrong_nouns = []
+for line in json_data:
+    defin = line.values()
+    tags = []
+    main_w = line.keys()
+    d = list(main_w)[0].replace(';','')
+    d = d.strip(d[-1])
+    d = eval(d.strip(' '))
+    m = re.match('NOUN',list(d.values())[0])
+    if m != None:
+        for _def in defin:
+            nouns= []
+            gram = list(_def[-1].values())[-1]
+            for _dict in gram:
+                m = re.match('NOUN',list(_dict.values())[0])
+                if m != None:
+                    nouns.append(_dict)
+                for noun in nouns:
+                    m = re.match('NOUN.+accs', str_value(noun))
+                    if m != None and nouns.index(noun) == 0:
+                        if line not in mistakes:
+                            mistakes.append(line)
+                    #if k_word == str_key(noun):
+                     #   if str_key(line)+ '; ' + str(json_data.index(line)) not in result:
+                      #      result.append(str_key(line)+ '; ' + str(json_data.index(line)))
+#wrong_n = []
+for mistake in mistakes:
+    if mistake in json_data:
+        indx = json_data.index(mistake)
+        #json_data.remove(mistake)
+        defin = mistake.values()
+        nouns= []
+        for _def in defin:
+            gram = list(_def[-1].values())[-1]
+            for _dict in gram:
+                m = re.match('NOUN',list(_dict.values())[0])
+                if m != None:
+                    nouns.append(_dict)
+                for noun in nouns:
+                    m = re.match('NOUN.+accs', str_value(noun))
+                    if m != None and nouns.index(noun) == 0:
+                        #if noun not in wrong_n:
+                            #wrong_n.append(noun)
+                        fine_gram = str_value(noun).replace('accs','nomn')
+                        fine_noun = {str_key(noun):fine_gram}
+                        indx = gram.index(_dict)
+                        #indx = nouns.index(noun)
+                        #nouns.remove(noun)
+                        #nouns.insert(indx,fine_noun)
+        
+
+
+
 result = []
-k_word = 'материал'
+k_word = 'болезнь'
 for line in json_data:
     defin = line.values()
     voc = list(line.keys())[0].split(';')[0]
@@ -100,19 +165,12 @@ for line in json_data:
         for word in list(gram.values())[-1]:
             number = list(gram.values())[-1].index(word)
             tags.append(str_value(word))
-            first = []
             if str_key(word) == k_word:
                 for tag in tags:
-                    n = 0
-                    m = re.match('NOUN.+nomn',tag)
+                    m = re.match('NOUN',tag)
                     #m = re.match('INFN',tags)
-                    if m != None: #and tags.index(tag) == number: #and number <= 5:#and {k_word:tag} in list(gram.values())#and tags.index(tag) == number and number <= 5:
-                        n += 1
-                        first.append(tag)
-                        if {k_word:first[0]} in list(gram.values())[-1]:
-                            result.append(str_key(line)+ '; ' + str(json_data.index(line)))
-
-
+                    if m != None and tags.index(tag) == number:#and {k_word:tag} in list(gram.values())#and tags.index(tag) == number and number <= 5:
+                        result.append(str_key(line)+ '; ' + str(json_data.index(line)))
 with open(k_word+'.txt','w',encoding = 'utf-8') as f:
     for r in result:
         f.write(r + '\n')
@@ -233,26 +291,3 @@ for line in json_data:
 ##########################################################
 ##########################################################
 ##########################################################
-result = []
-k_word = 'материал'
-for line in json_data:
-    defin = line.values()
-    voc = list(line.keys())[0].split(';')[0]
-    tags = []
-    for _def in defin:
-        gram = _def[-1]
-        for word in list(gram.values())[-1]:
-            number = list(gram.values())[-1].index(word)
-            tags.append(str_value(word))
-            first = []
-            if str_key(word) == k_word:
-                for tag in tags:
-                    n = 0
-                    m = re.match('NOUN.+nomn',tag)
-                    #m = re.match('INFN',tags)
-                    if m != None: #and tags.index(tag) == number: #and number <= 5:#and {k_word:tag} in list(gram.values())#and tags.index(tag) == number and number <= 5:
-                        n += 1
-                        first.append(tag)
-                        if {k_word:first[0]} in list(gram.values())[-1]:
-                            result.append(str_key(line)+ '; ' + str(json_data.index(line)))
-
