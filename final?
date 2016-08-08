@@ -1,0 +1,405 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jul 25 12:53:41 2016
+
+@author: cogntech
+"""
+import json
+import os
+import nltk
+from nltk.corpus import stopwords
+import pymorphy2
+import pandas as pd
+import re
+from collections import Counter
+
+def str_key (_dict):
+    key = (str(list(_dict.keys())).strip('[]')).replace("'",'')
+    return(key)
+def str_value (_dict): 
+    value = (str(list(_dict.values())).strip('[]')).replace("'",'')
+    return(value)
+
+#stop_words = stopwords.words('russian')
+#stop_words.extend(["тка","ка","например", "также", "нибудь", "который", "свой", "обычно", "некоторый", "кому"])
+morph = pymorphy2.MorphAnalyzer()
+tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+_dict = pd.read_csv(os.getcwd()+"\\ozhegov2_ex.csv", header=0, delimiter=";")
+
+def dict_to_wordlist(text, remove_stopwords=False):
+    words = []
+    gram_info = []
+    text = re.sub("[^а-яА-Я]"," ", text)
+    all_words = text.lower().split()
+    for word in all_words:
+        p = morph.parse(word)[0]
+        #if word not in stop_words and  p.normal_form not in stop_words:
+        words.append({word:p.normal_form})
+        gram_info.append({p.normal_form:str(p.tag)})
+    return(words,gram_info)
+    
+def dict_to_sentences(text,tokenizer, remove_stopwords=True):
+    raw_sentences = tokenizer.tokenize(text.strip())
+    sentences = []
+    for raw_sentence in raw_sentences:
+        if dict_to_wordlist(raw_sentence,remove_stopwords) not in sentences:
+            sentences.append(dict_to_wordlist(raw_sentence,remove_stopwords))
+    return(sentences)
+
+sentences = []
+baseforms = []
+voc = []
+i = 0
+for art in _dict["DEF"]:
+    sentences.append(dict_to_sentences(str(art), tokenizer))
+    baseforms.append(_dict["BASEFORM"][i])
+    voc.append(_dict["VOCAB"][i])
+    i += 1
+    
+def dict_to_json(sentences,voc):
+    to_json = []
+    voc_tags = []
+    for word in voc:
+        p = morph.parse(word)[0]
+        word = {word:str(p.tag)}
+        voc_tags.append(word)
+    with open('ozhegov_data.json','w',encoding = 'utf-8') as outfile:
+        for i in range(len(sentences)):
+            for s in sentences[i]:
+                s = list(s)
+                s[0] = {'LEMMAS':s[0]}
+                s[-1] = {'GRAM':s[-1]}
+                to_json.append({str(voc_tags[i]) + '; ' + str(om_counter[i]):s})
+        json.dump(to_json,outfile,ensure_ascii=False,indent=1)
+    with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
+        json_data = json.load(json_file, encoding= 'utf-8' )
+    return(json_data)
+
+def mistakes(json_data):
+    mistakes = []
+    for line in json_data:
+        defin = line.values()
+        main_w = line.keys()
+        d = list(main_w)[0].replace(';','')
+        d = d.strip(d[-1])
+        d = eval(d.strip(' '))
+        m = re.match('NOUN',list(d.values())[0])
+        if m != None:
+            for _def in defin:
+                try:
+                    tot_kto = str_key((list(_def[0].values())[0])[0]) + ' ' + str_key((list(_def[0].values())[0])[1])
+                    if  tot_kto != 'тот кто':
+                        nouns= []
+                        gram = list(_def[-1].values())[-1]
+                        for _dict in gram:
+                            m = re.match('NOUN',list(_dict.values())[0])
+                            if m != None:
+                                nouns.append(_dict)
+                            for noun in nouns:
+                                m = re.match('NOUN.+loct', str_value(noun))
+                                if m != None and nouns.index(noun) == 0:
+                                    if line not in mistakes:
+                                        mistakes.append(line)
+                except IndexError:
+                    continue
+        for mistake in mistakes:
+            if mistake in json_data:
+                defin = mistake.values()
+                nouns= []
+                for _def in defin:
+                    gram = list(_def[-1].values())[-1]
+                    for _dict in gram:
+                        dict_indx = gram.index(_dict)
+                        m = re.match('NOUN',list(_dict.values())[0])
+                        if m != None:
+                            nouns.append(_dict)
+                        for noun in nouns:
+                            m = re.match('NOUN.+loct', str_value(noun))
+                            if m != None and nouns.index(noun) == 0:
+                                fine_gram = str_value(noun).replace('loct','nomn')
+                                fine_noun = {str_key(noun):fine_gram}
+                                if noun == gram[dict_indx]:
+                                    gram.remove(gram[dict_indx])
+                                    gram.insert(dict_indx,fine_noun)
+                    _def.remove(_def[-1])
+                    _def.append({'GRAM':gram})
+        return(json_data)
+
+
+    
+voc_tags = []
+for word in voc:
+    p = morph.parse(word)[0]
+    word = {word:str(p.tag)}
+    voc_tags.append(word)
+    
+### ОМОНИМИЯ:
+omonymy = []
+omonymy_indx = []
+om_counter = []
+sim_w_counter = []
+for i in range(len(baseforms)):
+    if baseforms[i] >= 1:
+        om_counter.append(int(baseforms[i]))
+    else:
+        om_counter.append(0) 
+    omonymy_indx.append({str_key(words[i])+ ' ' +(str_value(words[i])):om_counter[i]})
+    omonymy.append({str_value(words[i]):om_counter[i]})
+    c = words.count(str_value(words[i]))
+    
+
+    
+###ПОИСК ПО ГРАМ. ТЕГАМ:
+with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
+    json_data = json.load(json_file, encoding= 'utf-8' )
+
+mistakes = []
+wrong_nouns = []
+for line in json_data:
+    defin = line.values()
+    tags = []
+    main_w = line.keys()
+    d = list(main_w)[0].replace(';','')
+    d = d.strip(d[-1])
+    d = eval(d.strip(' '))
+    m = re.match('NOUN',list(d.values())[0])
+    if m != None:
+        for _def in defin:
+            try:
+                tot_kto = str_key((list(_def[0].values())[0])[0]) + ' ' + str_key((list(_def[0].values())[0])[1])
+                if  tot_kto != 'тот кто':
+                    nouns= []
+                    gram = list(_def[-1].values())[-1]
+                    for _dict in gram:
+                        m = re.match('NOUN',list(_dict.values())[0])
+                        if m != None:
+                            nouns.append(_dict)
+                        for noun in nouns:
+                            m = re.match('NOUN.+loct', str_value(noun))
+                            if m != None and nouns.index(noun) == 0:
+                                if line not in mistakes:
+                                    mistakes.append(line)
+            except IndexError:
+                continue
+
+for mistake in mistakes:
+    if mistake in json_data:
+        indx = json_data.index(mistake)
+        defin = mistake.values()
+        nouns= []
+        for _def in defin:
+            gram = list(_def[-1].values())[-1]
+            for _dict in gram:
+                dict_indx = gram.index(_dict)
+                m = re.match('NOUN',list(_dict.values())[0])
+                if m != None:
+                    nouns.append(_dict)
+                for noun in nouns:
+                    m = re.match('NOUN.+loct', str_value(noun))
+                    if m != None and nouns.index(noun) == 0:
+                        fine_gram = str_value(noun).replace('loct','nomn')
+                        fine_noun = {str_key(noun):fine_gram}
+                        if noun == gram[dict_indx]:
+                            gram.remove(gram[dict_indx])
+                            gram.insert(dict_indx,fine_noun)
+            _def.remove(_def[-1])
+            _def.append({'GRAM':gram})
+        
+with open('ozhegov_data.json','w',encoding = 'utf-8') as outfile:
+    json.dump(json_data,outfile,ensure_ascii=False,indent=1)
+
+with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
+    json_data = json.load(json_file, encoding= 'utf-8' )
+
+#Ч-ПРОФЕССИЯ: 'специалистка','специалист', 'работник', 'работница', 'сотрудник','чин'
+#О-ЕДА: 'хлеб','настойка','настой','суп','водка','конфета','орех','начинка','фарш','пряность','овощ','отвар','гриб','вино','корень','сладкое','ягода','семя','сорт','кушанье','еда','пища','напиток','зерно','злак','плод','мясо','пирог','хлеб'
+### кондитерское изделие
+#О-РАСТЕНИЕ: 'растение','злак','семя','зерно','ягода','цветок','трава','кустарник','стебель', 'корень','соцветие','дерево', 'плод'
+#О-ОДЕЖДА:  'одежда','ботинок','туфля','пояс','шапка', 'платье','обувь','бельё','брюки','юбка','рубашка','штаны','шуба','рубаха','кофта'
+#О-В-ВО-М-Л: 'вещество','материал','соединение','сахар','сырьё','смола','глина', 'порошок','кислота','ископаемое','древесина','соль','волокно','осадка','почва','элемент','порода','минерал','камень','раствор','жидкость','слой','остаток','масса','ткань','бумага'
+#О-ИНСТР-У-ВО: 'устройство','инструмент','машина','прибор', 'аппарат','приспособление','механизм','орудие'
+result = []
+k_words = ['устройство','инструмент','машина','прибор', 'аппарат','приспособление','механизм','орудие']
+for k_word in k_words:
+    for line in json_data:
+        defin = line.values()
+        voc = list(line.keys())[0].split(';')[0]
+        tags = []
+        for _def in defin:
+            gram = _def[-1]
+            for word in list(gram.values())[-1]:
+                tags.append(str_value(word))
+                for tag in tags:
+                    n = 0
+                    m = re.match('NOUN.+nomn',tag)
+                    #m = re.match('INFN',tags)
+                    if m != None: 
+                        n += 1
+                        if n == 1:
+                            if {k_word:tag} in list(gram.values())[-1]:
+                                hyp = str_key(line)+ '; ' + str(json_data.index(line))
+                                if hyp not in result:
+                                    result.append(str_key(line)+ '; ' + str(json_data.index(line)))
+    
+with open(k_words[0]+'.txt','w',encoding = 'utf-8') as f:
+    for r in result:
+        f.write(r + '\n')
+f.close()
+
+
+
+
+rep_count = []
+for o in omonymy:
+    c = omonymy.count(o)
+    if {str_key(o):c} not in rep_count:
+        rep_count.append({str_key(o):c})
+
+rep_lines = []
+repetitions = []
+for rep in rep_count:
+    repetitions.append(int(str_value(rep)))
+rep_lines = []
+for rep in rep_count:
+    rep_lines.append(str_key(rep))
+    
+final = []
+for n in range(len(rep_count)):
+    for i in range(int(str_value(rep_count[n]))):
+        final.append({str_key(rep_count[n]):i+1})
+#####################################################
+##############список омонимов + количество в словаре
+all_words = []
+i = 0
+for line in _dict["DEF"]:
+    if _dict["VOCAB"][i] not in all_words:
+        all_words.append(_dict["VOCAB"][i])
+        
+    i += 1
+        
+        
+om_list = []
+for o in omonymy:
+    if list(o.values())[0] != 0 and o not in om_list:
+        om_list.append(o)
+        
+for i in range(len(om_list)):
+    sim = []
+    if list(om_list[i-1].keys())[0] == list(om_list[i].keys())[0]:
+        sim.append(om_list[i])
+        om_list.remove(om_list[i-1])
+
+
+
+
+###### СРАВНКЕНИЕ ИНДЕКСОВ
+all_words = []
+i = 0
+for w in words:
+    all_words.append({str_value(w):i})
+    i+=1
+    
+counter = []
+for i in range(len(rep_count)):
+    count = int(str_value(rep_count[i]))
+    for c in range(count):
+        if c == 0:
+            counter.append({str_key(rep_count[i]):1})
+        else:
+            counter.append({str_key(rep_count[i]):c + 1}) 
+
+counted_words = []        
+for c in counter:
+    counted_words.append(str_key(c))
+
+count_indx = []
+i = 0
+for w in counted_words:
+    count_indx.append(str(i) + ' ' + w)
+    i+=1
+
+for i in range(len(count_indx)):
+    for j in range(len(omonymy_indx)):
+        if str_key():
+            
+            
+
+### ГИПЕРОНИМЫ В ТОЛКОВАНИИ
+#c = Counter(nouns).most_common()
+#v = Counter(inf).most_common()
+
+### 1-е сущ
+#for _class in c[:20]:
+  #  f = open(_class[0]+'.txt','a',encoding = 'utf-8')    
+   # for sentence in sentences:
+    #    m = re.search(_class[0] + '.*NOUN.*nomn', str(sentence[-1])) #регулярка неоч
+     #   if m != None:
+      #      for s in sentence:
+       #         f.write(str_key(s[0]) + '\n')
+    #f.close()
+
+### 1-й глагол 
+#for verb in v[:20]:
+ #   f=  open(verb[0] +'.txt','a',encoding = 'utf-8')
+  #  for sentence in sentences:
+   #     m = re.search(verb[0], str(sentence[-1]))
+    #    
+     #   if m != None:
+      #      for s in sentence:
+       #         f.write(str_key(s[0]) + '\n')            
+    #f.close()
+
+
+#########################################################
+##########################################################
+##########################################################
+##########################################################
+##########################################################
+additional = []
+
+for line in json_data:
+    for r in result:
+        k_word = eval(list(line.keys())[0].strip((list(line.keys())[0])[-3:]))
+        if str(k_word) in list(line.keys())[0]:
+            defin =  line.values()
+            for _def in defin:
+                lemmas = _def[0]
+                if {'кондитерское':'кондитерский'} in list(_def[0].values())[0]:
+                    if line not in additional:
+                        additional.append(line)
+
+f = open('additional.txt','w',encoding = 'utf-8')
+for instr in additional:
+    f.write(str(list(instr.keys()))+'\n')   
+f.close()     
+
+mus = open('музыкальные инструменты.txt','r',encoding = 'utf-8').readlines()
+instr = open('инструмент.txt','r',encoding = 'utf-8').readlines()
+for m in mus:
+    if m in instr:
+        instr.remove(m)
+        
+_file = open('инструмент2.txt','w',encoding = 'utf-8')
+for i in instr:
+    _file.write(i)
+_file.close()
+##############################################################################
+#####################################
+
+normalized_gram = []
+nouns = []
+for sentence in sentences:
+    for s in sentence:
+        normalized_gram.append(sentence[-1])
+        
+for forms in normalized_gram:
+    for word in forms[-1]:
+        try:
+            line = str_value(word)
+        except IndexError:
+            continue
+        m = re.search('NOUN',line)
+        if m != None:
+            nouns.append(str_key(word))
+            
+c = Counter(nouns).most_common()
