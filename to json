@@ -1,0 +1,176 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jul 25 12:53:41 2016
+
+@author: cogntech
+"""
+import json
+import os
+import nltk
+#from nltk.corpus import stopwords
+import pymorphy2
+import pandas as pd
+import re
+from collections import Counter
+
+def str_key (_dict):
+    key = (str(list(_dict.keys())).strip('[]')).replace("'",'')
+    return(key)
+def str_value (_dict): 
+    value = (str(list(_dict.values())).strip('[]')).replace("'",'')
+    return(value)
+
+#stop_words = stopwords.words('russian')
+#stop_words.extend(["тка","ка","например", "также", "нибудь", "который", "свой", "обычно", "некоторый", "кому"])
+morph = pymorphy2.MorphAnalyzer()
+tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+_dict = pd.read_csv(os.getcwd()+"\\ozhegov2_ex.csv", header=0, delimiter=";")
+
+
+#НОРМАЛИЗАЦИЯ ИСХОДНОГО ФАЙЛА ozhegov.csv
+def dict_to_wordlist(text, remove_stopwords=False):
+    words = []
+    gram_info = []
+    text = re.sub("[^а-яА-Я]"," ", text)
+    all_words = text.lower().split()
+    for word in all_words:
+        p = morph.parse(word)[0]
+        #if word not in stop_words and  p.normal_form not in stop_words:
+        words.append({word:p.normal_form})
+        gram_info.append({p.normal_form:str(p.tag)})
+    return(words,gram_info)
+    
+def dict_to_sentences(text,tokenizer, remove_stopwords=True):
+    raw_sentences = tokenizer.tokenize(text.strip())
+    sentences = []
+    for raw_sentence in raw_sentences:
+        if dict_to_wordlist(raw_sentence,remove_stopwords) not in sentences:
+            sentences.append(dict_to_wordlist(raw_sentence,remove_stopwords))
+    return(sentences)
+sentences = []
+baseforms = []
+voc = []
+i = 0
+for art in _dict["DEF"]:
+    sentences.append(dict_to_sentences(str(art), tokenizer))
+    baseforms.append(_dict["BASEFORM"][i])
+    voc.append(_dict["VOCAB"][i])
+    i += 1
+
+#ЧАСТОТНЫЕ СПИСКИ
+def pos_counter(tag):
+    normalized_gram = []
+    pos = []
+    for sentence in sentences:
+        for s in sentence:
+            normalized_gram.append(sentence[-1])
+    for forms in normalized_gram:
+        for word in forms[-1]:
+            try:
+                line = str_value(word)
+            except IndexError:
+                continue
+            m = re.search(tag,line)
+            if m != None:
+                pos.append(str_key(word))
+    return(pos)
+tag = 'INFN'
+pos = pos_counter(tag)            
+c = Counter(pos).most_common()
+with open('freq_'+tag+'.txt','w',encoding = 'utf-8') as f:
+    for word in c:
+        f.write(str(word) + '\n')
+f.close()
+
+#ПОДСЧЕТ ОМОНИМОВ
+def homonymy(baseforms):
+    om_counter = []
+    for i in range(len(baseforms)):
+        if baseforms[i] >= 1:
+            om_counter.append(int(baseforms[i]))
+        else:
+            om_counter.append(0) 
+    return(om_counter)
+om_counter = homonymy(baseforms)
+
+#ПРЕОБРАЗОВАНИЕ В JSON    
+def dict_to_json(sentences,voc):
+    to_json = []
+    voc_tags = []
+    for word in voc:
+        p = morph.parse(word)[0]
+        word = {word:str(p.tag)}
+        voc_tags.append(word)
+    with open('ozhegov_data.json','w',encoding = 'utf-8') as outfile:
+        for i in range(len(sentences)):
+            for s in sentences[i]:
+                s = list(s)
+                s[0] = {'LEMMAS':s[0]}
+                s[-1] = {'GRAM':s[-1]}
+                to_json.append({str(voc_tags[i]) + '; ' + str(om_counter[i]):s})
+        json.dump(to_json,outfile,ensure_ascii=False,indent=1)
+    with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
+        json_data = json.load(json_file, encoding= 'utf-8' )
+    return(json_data)
+json_data = dict_to_json(sentences,voc)
+
+#ПОИСК ИСПРАВЛЕНИЕ ОШИБОК РАЗМЕТКИ В ФАЙЛЕ ozhegov_data.json
+def  find_mistakes(json_data,case):
+    mistakes = []
+    for line in json_data:
+        defin = line.values()
+        main_w = line.keys()
+        d = list(main_w)[0].replace(';','')
+        d = d.strip(d[-1])
+        d = eval(d.strip(' '))
+        m = re.match('NOUN',list(d.values())[0])
+        if m != None:
+            for _def in defin:
+                try:
+                    tot_kto = str_key((list(_def[0].values())[0])[0]) + ' ' + str_key((list(_def[0].values())[0])[1])
+                    if  tot_kto != 'тот кто':
+                        nouns= []
+                        gram = list(_def[-1].values())[-1]
+                        for _dict in gram:
+                            m = re.match('NOUN',list(_dict.values())[0])
+                            if m != None:
+                                nouns.append(_dict)
+                            for noun in nouns:
+                                m = re.match('NOUN.+'+case, str_value(noun))
+                                if m != None and nouns.index(noun) == 0:
+                                    if line not in mistakes:
+                                        mistakes.append(line)
+                except IndexError:
+                    continue
+    return(mistakes)
+
+def fix_json(mistakes,case):
+    for mistake in mistakes:
+        if mistake in json_data:
+            defin = mistake.values()
+            nouns= []
+            for _def in defin:
+                gram = list(_def[-1].values())[-1]
+                for _dict in gram:
+                    dict_indx = gram.index(_dict)
+                    m = re.match('NOUN',list(_dict.values())[0])
+                    if m != None:
+                        nouns.append(_dict)
+                    for noun in nouns:
+                        m = re.match('NOUN.+'+case, str_value(noun))
+                        if m != None and nouns.index(noun) == 0:
+                            fine_gram = str_value(noun).replace(case,'nomn')
+                            fine_noun = {str_key(noun):fine_gram}
+                            if noun == gram[dict_indx]:
+                                gram.remove(gram[dict_indx])
+                                gram.insert(dict_indx,fine_noun)
+                _def.remove(_def[-1])
+                _def.append({'GRAM':gram})
+    return(json_data)
+
+case = 'loct'
+mistakes = find_mistakes(json_data,case)
+json_data = fix_json(mistakes,case)        
+with open('ozhegov_data.json','w',encoding = 'utf-8') as outfile:
+    json.dump(json_data,outfile,ensure_ascii=False,indent=1)
+        
