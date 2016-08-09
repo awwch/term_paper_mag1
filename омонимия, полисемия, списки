@@ -1,0 +1,100 @@
+omonymy = []
+for i in range(len(baseforms)):
+    omonymy.append({j_vocab[i]:om_counter[i]})
+
+rep_count = []
+for o in omonymy:
+    om_count = omonymy.count(o)
+    if {str_key(o):om_count} not in rep_count:
+        rep_count.append({str_key(o):om_count})
+
+
+
+
+###############################################################################
+omonymy = []
+om_counter = []
+for i in range(len(baseforms)):
+    if baseforms[i] >= 1:
+        om_counter.append(int(baseforms[i]))
+    else:
+        om_counter.append(1) 
+    omonymy.append({j_vocab[i]:om_counter[i]})
+
+rep_count = []
+for o in omonymy:
+    c = omonymy.count(o)
+    if {str_key(o):c} not in rep_count:
+        rep_count.append({str_key(o):c})
+
+repetitions = []
+for rep in rep_count:
+    repetitions.append(int(str_value(rep)))
+
+rep_lines = []
+for rep in rep_count:
+    rep_lines.append(str_key(rep))
+    
+polysemy = []
+for n in range(len(rep_count)):
+    for i in range(int(str_value(rep_count[n]))):
+        polysemy.append({str_key(rep_count[n]):i+1})
+        
+        
+        
+        
+        
+        
+        
+        
+
+#####################################################
+##############список омонимов + количество в словаре
+all_words = []
+i = 0
+for line in _dict["DEF"]:
+    if _dict["VOCAB"][i] not in all_words:
+        all_words.append(_dict["VOCAB"][i])
+        
+    i += 1
+        
+        
+om_list = []
+for o in omonymy:
+    if list(o.values())[0] != 0 and o not in om_list:
+        om_list.append(o)
+        
+for i in range(len(om_list)):
+    sim = []
+    if list(om_list[i-1].keys())[0] == list(om_list[i].keys())[0]:
+        sim.append(om_list[i])
+        om_list.remove(om_list[i-1])
+
+
+
+
+###### СРАВНКЕНИЕ ИНДЕКСОВ
+all_words = []
+i = 0
+for w in words:
+    all_words.append({str_value(w):i})
+    i+=1
+    
+counter = []
+for i in range(len(rep_count)):
+    count = int(str_value(rep_count[i]))
+    for c in range(count):
+        if c == 0:
+            counter.append({str_key(rep_count[i]):1})
+        else:
+            counter.append({str_key(rep_count[i]):c + 1}) 
+
+counted_words = []        
+for c in counter:
+    counted_words.append(str_key(c))
+
+count_indx = []
+i = 0
+for w in counted_words:
+    count_indx.append(str(i) + ' ' + w)
+    i+=1
