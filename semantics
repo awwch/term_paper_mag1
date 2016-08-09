@@ -1,0 +1,99 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug  9 13:21:07 2016
+
+@author: cogntech
+"""
+import json
+import pymorphy2
+import re
+
+morph = pymorphy2.MorphAnalyzer()
+with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
+    json_data = json.load(json_file, encoding= 'utf-8' )
+
+def str_key (_dict):
+    key = (str(list(_dict.keys())).strip('[]')).replace("'",'')
+    return(key)
+def str_value (_dict): 
+    value = (str(list(_dict.values())).strip('[]')).replace("'",'')
+    return(value)
+
+def hyponyms(k_words,gram_tag):
+    result = []
+    for k_word in k_words:
+        for line in json_data:
+            defin = line.values()
+            tags = []
+            for _def in defin:
+                gram = _def[-1]
+                for word in list(gram.values())[-1]:
+                    tags.append(str_value(word))
+                    for tag in tags:
+                        n = 0
+                        m = re.match(gram_tag,tag)
+                        if m != None: 
+                            n += 1
+                            if n == 1:
+                                if {k_word:tag} in list(gram.values())[-1]:
+                                    hyp = str_key(line)+ '; ' + str(json_data.index(line))
+                                    if hyp not in result:
+                                        result.append(str_key(line)+ '; ' + str(json_data.index(line)))
+    return(result)
+
+result = []
+k_words = ['изделие', 'пища'] 
+gram_tag = 'NOUN.+nomn'
+result = hyponyms(k_words,gram_tag)
+
+#Ч-ПРОФЕССИЯ: 'специалистка','специалист', 'работник', 'работница', 'сотрудник','чин'
+#О-ЕДА: 'хлеб','настойка','настой','суп','водка','конфета','орех','начинка','фарш','пряность','овощ','отвар','гриб','вино','корень','сладкое','ягода','семя','сорт','кушанье','еда','пища','напиток','зерно','злак','плод','мясо','пирог','хлеб'
+### кондитерское изделие
+#О-РАСТЕНИЕ: 'растение','злак','семя','зерно','ягода','цветок','трава','кустарник','стебель', 'корень','соцветие','дерево', 'плод'
+#О-ОДЕЖДА:  'одежда','ботинок','туфля','пояс','шапка', 'платье','обувь','бельё','брюки','юбка','рубашка','штаны','шуба','рубаха','кофта'
+#О-В-ВО-М-Л: 'вещество','материал','соединение','сахар','сырьё','смола','глина', 'порошок','кислота','ископаемое','древесина','соль','волокно','осадка','почва','элемент','порода','минерал','камень','раствор','жидкость','слой','остаток','масса','ткань','бумага'
+#О-ИНСТР-У-ВО: 'устройство','инструмент','машина','прибор', 'аппарат','приспособление','механизм','орудие'
+ 
+def colloc(word):
+    add = {word:(morph.parse(word)[0]).normal_form}
+    result2 = []
+    for line in json_data:
+        for r in result:
+            k_word = eval(list(line.keys())[0].strip((list(line.keys())[0])[-3:]))
+            if str(k_word) in list(line.keys())[0]:
+                defin =  line.values()
+                for _def in defin:
+                    if add in list(_def[0].values())[0]:
+                        hyp = str_key(line)+ '; ' + str(json_data.index(line))
+                        if hyp not in result2:
+                            result2.append(hyp)
+                        if hyp in result:
+                            result.remove(hyp)
+    return(result,result2)
+
+result2 = []
+word = 'кондитерское'
+result, result2 = colloc(word)
+
+with open(k_words[0]+'.txt','w',encoding = 'utf-8') as f:
+    for r in result:
+        m = re.search('[а-я]+',r)
+        if m != None:
+            f.write("'"+m.group()+"',"+'\n')
+f.close()
+with open(word + '+' + k_words[0]+'.txt','w',encoding = 'utf-8') as f:
+    for r in result2:
+        m = re.search('[а-я]+',r)
+        if m != None:
+            f.write("'"+m.group()+"',"+'\n')
+f.close()
+        
+#baseforms = []
+#j_vocab = []
+#for line in json_data:
+ #   m = re.search('[0-9a-zа-я]+',list(line.keys())[0])
+  #  if m != None:
+   #     j_vocab.append(m.group())
+    #m = re.search('\}; [0-9]{1}',list(line.keys())[0])
+    #if m != None:
+     #   baseforms.append(int(m.group().strip(string.punctuation)))
