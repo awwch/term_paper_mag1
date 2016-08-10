@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug  9 13:21:07 2016
+
+@author: cogntech
+"""
+import json
+import pymorphy2
+import re
+import string
+
+morph = pymorphy2.MorphAnalyzer()
+with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
+    json_data = json.load(json_file, encoding= 'utf-8' )
+
+for line in json_data:
+    
+
+
+
+
+def str_key (_dict):
+    key = (str(list(_dict.keys())).strip('[]')).replace("'",'')
+    return(key)
+def str_value (_dict): 
+    value = (str(list(_dict.values())).strip('[]')).replace("'",'')
+    return(value)
+
+def hyponyms(k_words,gram_tag):
+    result = []
+    for k_word in k_words:
+        for line in json_data:
+            defin = line.values()
+            tags = []
+            for _def in defin:
+                gram = _def[-1]
+                for word in list(gram.values())[-1]:
+                    tags.append(str_value(word))
+                    for tag in tags:
+                        n = 0
+                        m = re.match(gram_tag,tag)
+                        if m != None: 
+                            n += 1
+                            if n == 1:
+                                if {k_word:tag} in list(gram.values())[-1]:
+                                    hyp = str_key(line)+ '; ' + str(json_data.index(line))
+                                    if hyp not in result:
+                                        result.append(str_key(line)+ '; ' + str(json_data.index(line)))
+    return(result)
+
+
+result = []
+k_words = ['давать'] 
+gram_tag = 'INFN' #если больше одной граммемы, требуется регулярное выражение
+result = hyponyms(k_words,gram_tag)
+
+#Ч-ПРОФЕССИЯ: 'специалистка','специалист', 'работник', 'работница', 'сотрудник','чин'
+#О-ЕДА: 'хлеб','настойка','настой','суп','водка','конфета','орех','начинка','фарш','пряность','овощ','отвар','гриб','вино','корень','сладкое','ягода','семя','сорт','кушанье','еда','пища','напиток','зерно','злак','плод','мясо','пирог','хлеб'
+### кондитерское изделие
+#О-РАСТЕНИЕ: 'растение','злак','семя','зерно','ягода','цветок','трава','кустарник','стебель', 'корень','соцветие','дерево', 'плод'
+#О-ОДЕЖДА:  'одежда','ботинок','туфля','пояс','шапка', 'платье','обувь','бельё','брюки','юбка','рубашка','штаны','шуба','рубаха','кофта'
+#О-В-ВО-М-Л: 'вещество','материал','соединение','сахар','сырьё','смола','глина', 'порошок','кислота','ископаемое','древесина','соль','волокно','осадка','почва','элемент','порода','минерал','камень','раствор','жидкость','слой','остаток','масса','ткань','бумага'
+#О-ИНСТР-У-ВО: 'устройство','инструмент','машина','прибор', 'аппарат','приспособление','механизм','орудие'
+ 
+def colloc(words):
+    for r in result:
+        m = re.search('[а-я]+',r)
+        if m != None:
+            voc = m.group()
+        for line in json_data:
+            if voc in str(list(line.keys())[0]): 
+                defin =  line.values()
+                for _def in defin:
+                    for word in words:
+                        if word in str(list(_def[0].values())[0]):
+                            hyp = str_key(line)+ '; ' + str(json_data.index(line))
+                            if hyp not in result2:
+                                result2.append(hyp)
+                            if hyp in result:
+                                result.remove(hyp)
+    return(result,result2)
+
+result2 = []
+words = []
+
+#убрать значок комментария, если требуется поиск по словосочетаниям: 
+result, result2 = colloc(words)
+
+# СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ПОИСКА БЕЗ КОЛЛОКАЦИЙ (не комментировать):
+with open(k_words[0]+'.txt','w',encoding = 'utf-8') as f:
+    for r in result:
+        m = re.search('[а-я]+',r)
+        m1 = re.search('; \d+$',r)
+        if m != None and m1 != None:
+            f.write(m.group() + m1.group()+'\n')
+f.close()
+
+#СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ПОИСКА ПО КОЛЛОКАЦИЯМ:
+#убрать значок комментария, если производился поиск по словосочетаниям:
+#with open(words[0] + '+' + k_words[0]+'.txt','w',encoding = 'utf-8') as f:
+#    for r in result2:
+#        m = re.search('[а-я]+',r)
+#        if m != None:
+#            f.write("'"+m.group()+"',"+'\n')
+#f.close()
+
+
+#Из-за опечаток в исходном файле в json_data содержится больше элементов, чем 
+#статей в исходном словаре, хотя это число должно совпадать. Функция get_data 
+#извлекает данные, содержащиеся в элементах json_data. Извлекаются заголовочное
+#слово статьи (помещается в список j_vocab) и номер омонима (список baseforms).
+#Словам без омонимии соответствует 0.  
+def get_data(json_data):        
+    baseforms = []
+    j_vocab = []
+    for line in json_data:
+        m = re.search('[0-9a-zа-я]+',list(line.keys())[0])
+        if m != None:
+            j_vocab.append(m.group())
+        m = re.search('\}; [0-9]{1}',list(line.keys())[0])
+        if m != None:
+            baseforms.append(int(m.group().strip(string.punctuation)))
+    return(baseforms,j_vocab)
