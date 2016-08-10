@@ -179,15 +179,16 @@ with open("ozhegov_data.json",encoding = 'utf-8') as json_file:
 
 
 new_data = []
-new_full = []
+new_keys = []
 for line in json_data:
-    full = list(line.keys())
-    new_voc = full[0] + '; ' + str(json_data.index(line))
-        #full.remove(voc)
-    new_full.append(new_voc)
-    new_line = {new_full[0] : list(line.values())[0]}
-    if new_line not in new_data:
-        new_data.append(new_line)
+    full_key = list(line.keys())
+    new_voc = full_key[0] + '; ' + str(json_data.index(line))
+    new_keys.append(new_voc)
+    for k in new_keys:
+        new_line = {k : list(line.values())[0]}
+        if new_line not in new_data:
+            new_data.append(new_line)
+    
     #json_data.remove(line)
     #json_data.append(new_line)
         #list(line.keys()).replace(voc,new_voc)
